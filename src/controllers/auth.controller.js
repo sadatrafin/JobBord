@@ -8,12 +8,12 @@ const { randomInt } = require("crypto");
 
 const generateOtp = () => randomInt(1000, 10000).toString();
 
-//Register a new user
+//Register controller
 
 exports.signupController = asyncHandler(async (req, res) => {
   let { name, email, password } = req.body;
 
-  if (email){
+  if (email) {
     let existingUser = await UserModel.findOne({ email });
     if (existingUser) {
       return apiResponse(res, 400, "User already exists");
@@ -41,17 +41,17 @@ exports.signupController = asyncHandler(async (req, res) => {
             5 * 60 * 1000,
           );
 
-          sendEmail(email, otp, name);
+          await sendEmail({ email, otp, name, type: "register" });
           apiResponse(res, 201, "account created successful", user);
         }
       });
     }
-  }else{
+  } else {
     return apiResponse(res, 400, "Email is required");
   }
 });
 
-//Login a user
+//Login controller
 
 exports.signinController = asyncHandler(async (req, res) => {
   let { email, password } = req.body;
@@ -104,7 +104,10 @@ exports.otpVerifyController = asyncHandler(async (req, res) => {
   }
 
   if (existingUser.otp === otp) {
-    if (existingUser.otpExpired && existingUser.otpExpired.getTime() > Date.now()) {
+    if (
+      existingUser.otpExpired &&
+      existingUser.otpExpired.getTime() > Date.now()
+    ) {
       existingUser.otp = null;
       existingUser.otpExpired = null;
       existingUser.isVerified = true;
@@ -144,7 +147,54 @@ exports.resendOtpController = asyncHandler(async (req, res) => {
   existingUser.otpExpired = Date.now() + 5 * 60 * 1000;
   await existingUser.save();
 
-  await sendEmail(email, otp, existingUser.name);
+  await sendEmail({ email, otp, name: existingUser.name, type: "resend_otp" });
 
   apiResponse(res, 200, "New OTP sent successfully");
+});
+
+// Forget password controller
+
+exports.forgetPasswordController = asyncHandler(async (req, res) => {
+  let { email } = req.body;
+
+  let user = await UserModel.findOne({ email });
+
+  if (user) {
+    const otp = generateOtp();
+    user.otp = otp;
+    user.otpExpired = Date.now() + 5 * 60 * 1000;
+    await user.save();
+
+    await sendEmail({ email, otp, name: user.name, type: "forgot_password" });
+    apiResponse(res, 200, "OTP sent successfully");
+  } else {
+    apiResponse(res, 404, "User not found");
+  }
+});
+
+// Reset password controller
+
+exports.resetPasswordController = asyncHandler(async (req, res) => {
+  let { email, otp, newPassword } = req.body;
+  let user = await UserModel.findOne({ email });
+
+  if (user) {
+    if (user.otp === otp) {
+      if (user.otpExpired > Date.now()) {
+        let hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        user.password = hashedPassword;
+        user.otp = null;
+        user.otpExpired = null;
+        await user.save();
+        apiResponse(res, 200, "Password reset successful");
+      } else {
+        apiResponse(res, 400, "OTP has expired");
+      }
+    } else {
+      apiResponse(res, 400, "Invalid OTP");
+    }
+  } else {
+    apiResponse(res, 404, "User not found");
+  }
 });
