@@ -2,42 +2,53 @@ const { sendEmail } = require("../helpers/sendEmail");
 const UserModel = require("../model/user.model");
 const apiResponse = require("../utils/apiResponse");
 const { asyncHandler } = require("../utils/asyncHandler");
-const { v4: uuidv4 } = require("uuid");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { randomInt } = require("crypto");
+
+const generateOtp = () => randomInt(1000, 10000).toString();
 
 //Register a new user
 
 exports.signupController = asyncHandler(async (req, res) => {
   let { name, email, password } = req.body;
 
-  bcrypt.hash(password, 10, async (err, hash) => {
-    if (err) {
-      return apiResponse(res, 500, err || "Internal server error");
+  if (email){
+    let existingUser = await UserModel.findOne({ email });
+    if (existingUser) {
+      return apiResponse(res, 400, "User already exists");
     } else {
-      const otp = uuidv4().toString().slice(0, 6);
-      let user = new UserModel({
-        name,
-        email,
-        password: hash,
-        otp,
-        otpExpired: Date.now() + 5 * 60 * 1000,
-      });
-      await user.save();
-
-      setTimeout(
-        async () => {
-          user.otp = null;
-          user.otpExpired = null;
+      bcrypt.hash(password, 10, async (err, hash) => {
+        if (err) {
+          return apiResponse(res, 500, err || "Internal server error");
+        } else {
+          const otp = generateOtp();
+          let user = new UserModel({
+            name,
+            email,
+            password: hash,
+            otp,
+            otpExpired: Date.now() + 5 * 60 * 1000,
+          });
           await user.save();
-        },
-        5 * 60 * 1000,
-      );
 
-      sendEmail(email, otp, name);
-      apiResponse(res, 201, "account created successful", user);
+          setTimeout(
+            async () => {
+              user.otp = null;
+              user.otpExpired = null;
+              await user.save();
+            },
+            5 * 60 * 1000,
+          );
+
+          sendEmail(email, otp, name);
+          apiResponse(res, 201, "account created successful", user);
+        }
+      });
     }
-  });
+  }else{
+    return apiResponse(res, 400, "Email is required");
+  }
 });
 
 //Login a user
@@ -79,14 +90,21 @@ exports.signinController = asyncHandler(async (req, res) => {
 
 exports.otpVerifyController = asyncHandler(async (req, res) => {
   let { email, otp } = req.body;
+  email = typeof email === "string" ? email.trim().toLowerCase() : "";
+  otp = typeof otp === "string" ? otp.trim() : "";
+
+  if (!email || !otp) {
+    return apiResponse(res, 400, "Email and OTP are required");
+  }
+
   let existingUser = await UserModel.findOne({ email });
 
   if (!existingUser) {
     return apiResponse(res, 404, "User not found");
   }
 
-  if (existingUser.otp == otp) {
-    if (existingUser.otpExpired > new Date()) {
+  if (existingUser.otp === otp) {
+    if (existingUser.otpExpired && existingUser.otpExpired.getTime() > Date.now()) {
       existingUser.otp = null;
       existingUser.otpExpired = null;
       existingUser.isVerified = true;
@@ -104,6 +122,12 @@ exports.otpVerifyController = asyncHandler(async (req, res) => {
 
 exports.resendOtpController = asyncHandler(async (req, res) => {
   let { email } = req.body;
+  email = typeof email === "string" ? email.trim().toLowerCase() : "";
+
+  if (!email) {
+    return apiResponse(res, 400, "Email is required");
+  }
+
   let existingUser = await UserModel.findOne({ email });
 
   if (!existingUser) {
@@ -114,7 +138,7 @@ exports.resendOtpController = asyncHandler(async (req, res) => {
     return apiResponse(res, 400, "User is already verified");
   }
 
-  const otp = uuidv4().toString().slice(0, 6);
+  const otp = generateOtp();
 
   existingUser.otp = otp;
   existingUser.otpExpired = Date.now() + 5 * 60 * 1000;
