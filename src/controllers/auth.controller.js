@@ -41,7 +41,7 @@ exports.signupController = asyncHandler(async (req, res) => {
             5 * 60 * 1000,
           );
 
-          await sendEmail({ email, otp, name, type: "register" });
+          sendEmail({ email, otp, name, type: "register" });
           apiResponse(res, 201, "account created successful", user);
         }
       });
@@ -147,7 +147,7 @@ exports.resendOtpController = asyncHandler(async (req, res) => {
   existingUser.otpExpired = Date.now() + 5 * 60 * 1000;
   await existingUser.save();
 
-  await sendEmail({ email, otp, name: existingUser.name, type: "resend_otp" });
+  sendEmail({ email, otp, name: existingUser.name, type: "resend_otp" });
 
   apiResponse(res, 200, "New OTP sent successfully");
 });
@@ -165,7 +165,7 @@ exports.forgetPasswordController = asyncHandler(async (req, res) => {
     user.otpExpired = Date.now() + 5 * 60 * 1000;
     await user.save();
 
-    await sendEmail({ email, otp, name: user.name, type: "forgot_password" });
+    sendEmail({ email, otp, name: user.name, type: "forgot_password" });
     apiResponse(res, 200, "OTP sent successfully");
   } else {
     apiResponse(res, 404, "User not found");
