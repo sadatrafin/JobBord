@@ -30,13 +30,13 @@ exports.signupController = asyncHandler(async (req, res) => {
             otp,
             otpExpired: Date.now() + 5 * 60 * 1000,
           });
-           user.save();
+          await user.save();
 
           setTimeout(
             async () => {
               user.otp = null;
               user.otpExpired = null;
-               user.save();
+              await user.save();
             },
             5 * 60 * 1000,
           );
