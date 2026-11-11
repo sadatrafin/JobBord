@@ -6,16 +6,23 @@ const { dbConfig } = require("./config/db");
 dbConfig();
 app.use(express.json());
 
+const allowedOrigins = [
+  "http://localhost:3000", 
+  "https://job-board-frontend-navy.vercel.app/register",
+  "https://job-board-frontend-navy.vercel.app"
+];
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "https://your-frontend-domain.vercel.app",
-    ],
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  }),
+  })
 );
 
 const router = require("./router");
