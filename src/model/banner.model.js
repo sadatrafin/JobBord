@@ -4,12 +4,12 @@ const bannerSchema = new mongoose.Schema(
   {
     title: {
       type: String,
-      required: [true, "name is required"],
+      required: [true, "Banner title is required."],
       trim: true,
     },
     image: {
       type: String,
-      required: [true, "image is required"],
+      required: [true, "Banner image is required."],
     },
   },
   {

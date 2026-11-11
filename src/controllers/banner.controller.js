@@ -11,6 +11,6 @@ exports.createBannerController = asyncHandler(async (req,res)=>{
     }) 
     await banner.save()
 
-    apiResponse(res, 201, "banner created successful",banner )
+    apiResponse(res, 201, "Banner created successfully",banner )
 
 })
