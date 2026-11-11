@@ -11,7 +11,7 @@ const generateOtp = () => randomInt(1000, 10000).toString();
 //Register controller
 
 exports.signupController = asyncHandler(async (req, res) => {
-  let { name, email, password } = req.body;
+  let { name, email, password, role } = req.body;
 
   if (email) {
     let existingUser = await UserModel.findOne({ email });
@@ -26,6 +26,7 @@ exports.signupController = asyncHandler(async (req, res) => {
           let user = new UserModel({
             name,
             email,
+            role: role,
             password: hash,
             otp,
             otpExpired: Date.now() + 5 * 60 * 1000,
